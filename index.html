@@ -21,22 +21,37 @@
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased">
 
-    <!-- MODAL / HALAMAN LOGIN PASSWORD -->
-    <div id="login-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-100 text-center space-y-6">
-            <div class="w-14 h-14 bg-blue-600 rounded-2xl mx-auto flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-blue-200">🔒</div>
+    <!-- MODAL / HALAMAN LOGIN & PEMBAYARAN QRIS -->
+    <div id="login-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-100 text-center space-y-6 my-8">
+            <div class="w-14 h-14 bg-blue-600 rounded-2xl mx-auto flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-blue-200">💎</div>
             <div>
-                <h2 class="text-2xl font-bold text-slate-900">Akses Terbatas</h2>
-                <p class="text-xs text-slate-500 mt-1">Masukkan password lisensi perusahaan untuk membuka aplikasi.</p>
+                <h2 class="text-2xl font-bold text-slate-900">Aktivasi Lisensi Software</h2>
+                <p class="text-xs text-slate-500 mt-1">Scan QRIS di bawah untuk pembayaran RP 50000, lalu hubungi developer untuk mendapatkan password akses.</p>
             </div>
+
+            <!-- GAMBAR QRIS PEMBAYARAN (Ganti qris.png dengan file gambar QRIS Anda di GitHub) -->
+            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 inline-block space-y-2">
+                <img src="qris.jpeg" alt="QRIS Pembayaran Biztren" class="w-48 h-48 mx-auto object-contain rounded-xl border border-slate-300" onerror="this.style.display='none'; document.getElementById('qris-fallback').style.display='block';">
+                <div id="qris-fallback" class="hidden p-6 bg-slate-200 text-slate-600 text-xs rounded-xl font-medium">
+                    [ tunggu kode QRIS BELUM DI UPDATE ]
+                </div>
+                <p class="text-[11px] font-bold text-slate-700">Scan dengan BCA, GoPay, OVO, Dana, QRIS</p>
+            </div>
+
+            <!-- Form Input Password Lisensi -->
             <form id="form-login" class="space-y-4">
-                <input type="password" id="input-password" placeholder="Masukkan Password (hubungi developer)" required class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-center font-mono">
+                <input type="password" id="input-password" placeholder="Masukkan Password Lisensi" required class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-center font-mono">
                 <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition shadow-md text-sm">Buka Aplikasi</button>
             </form>
-            <p id="login-error" class="text-xs text-rose-500 font-medium hidden">Password salah! Silakan coba lagi.</p>
+
+            <p id="login-error" class="text-xs text-rose-500 font-medium hidden">Password salah! Silakan hubungi developer.</p>
+            
+            <div class="pt-2 border-t border-slate-100 text-[11px] text-slate-400">
+                Butuh bantuan aktivasi? Hubungi pengembang di <span class="font-semibold text-slate-600">Biztren Cloud Indonesia</span>.
+            </div>
         </div>
     </div>
-
     <!-- AREA CETAK SLIP GAJI -->
     <div id="slip-cetak-area" class="hidden bg-white p-8 max-w-lg mx-auto text-slate-900 border border-slate-300 rounded-2xl my-10 shadow-lg">
         <div class="text-center border-b border-slate-200 pb-4 mb-4">
