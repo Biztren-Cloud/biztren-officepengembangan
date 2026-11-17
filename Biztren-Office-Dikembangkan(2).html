@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="id" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biztren Office | Solusi HR, Payroll, & Aset Perusahaan</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style> 
+        body { font-family: 'Inter', sans-serif; } 
+        @media print {
+            body * { visibility: hidden; }
+            #slip-cetak-area, #slip-cetak-area *, #id-card-cetak-area, #id-card-cetak-area * { visibility: visible; }
+            #slip-cetak-area, #id-card-cetak-area { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; background: white; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased">
+
+    <!-- MODAL / HALAMAN LOGIN PASSWORD -->
+    <div id="login-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-100 text-center space-y-6">
+            <div class="w-14 h-14 bg-blue-600 rounded-2xl mx-auto flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-blue-200">🔒</div>
+            <div>
+                <h2 class="text-2xl font-bold text-slate-900">Masuk Biztren Office</h2>
+                <p class="text-xs text-slate-500 mt-1">Masuk menggunakan akun perusahaan yang terdaftar.</p>
+            </div>
+            <form id="form-login" class="space-y-4">
+                <input type="email" id="input-email" autocomplete="username" placeholder="Email perusahaan" required class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <input type="password" id="input-password" autocomplete="current-password" placeholder="Kata sandi" required class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <button id="btn-login" type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition shadow-md text-sm">Masuk</button>
+            </form>
+            <p id="login-error" class="text-xs text-rose-500 font-medium hidden"></p>
+        </div>
+    </div>
+
+    <!-- AREA CETAK SLIP GAJI -->
+    <div id="slip-cetak-area" class="hidden bg-white p-8 max-w-lg mx-auto text-slate-900 border border-slate-300 rounded-2xl my-10 shadow-lg">
+        <div class="text-center border-b border-slate-200 pb-4 mb-4">
+            <h2 id="brand-slip" class="text-xl font-extrabold text-blue-600">Nama Perusahaan</h2>
+            <p class="text-xs text-slate-500">Slip Gaji Resmi Karyawan Korporat</p>
+        </div>
+        <div class="space-y-3 text-sm">
+            <div class="flex justify-between border-b border-slate-100 pb-2"><span class="text-slate-500">Nama Pegawai:</span><span id="print-nama" class="font-bold">--</span></div>
+            <div class="flex justify-between border-b border-slate-100 pb-2"><span class="text-slate-500">Gaji Pokok:</span><span id="print-pokok">--</span></div>
+            <div class="flex justify-between border-b border-slate-100 pb-2"><span class="text-slate-500">Tunjangan / Lembur:</span><span id="print-tunjangan">--</span></div>
+            <div class="flex justify-between border-b border-slate-100 pb-2"><span class="text-slate-500">Estimasi Potongan PPh 21 (5%):</span><span id="print-pajak" class="text-rose-600">--</span></div>
+            <div class="flex justify-between pt-2 text-base font-extrabold"><span>Gaji Bersih (Take Home Pay):</span><span id="print-netto" class="text-emerald-600">--</span></div>
+        </div>
+        <div class="mt-8 text-center text-xs text-slate-400 pt-4 border-t border-slate-100">
+            <button onclick="tutupCetak()" class="no-print mt-4 bg-slate-800 text-white px-6 py-2 rounded-xl text-xs font-semibold">Tutup</button>
+        </div>
+    </div>
+
+    <!-- AREA CETAK KARTU ID QR KARYAWAN -->
+    <div id="id-card-cetak-area" class="hidden bg-white p-6 max-w-xs mx-auto text-slate-900 border-2 border-blue-600 rounded-3xl my-10 shadow-2xl text-center space-y-4">
+        <div class="bg-blue-600 text-white py-3 rounded-2xl">
+            <h3 class="font-extrabold text-sm tracking-wider">KARTU ID PEGAWAI</h3>
+            <p id="brand-card" class="text-[10px] text-blue-100">Kartu Identitas Karyawan</p>
+        </div>
+        <div id="card-qr-render" class="flex justify-center p-2 bg-slate-50 rounded-xl border border-slate-200 inline-block"></div>
+        <div>
+            <h4 id="card-print-nama" class="font-bold text-base text-slate-900">--</h4>
+            <p id="card-print-divisi" class="text-xs text-blue-600 font-semibold">--</p>
+        </div>
+        <button onclick="tutupCetakCard()" class="no-print w-full mt-4 bg-slate-800 text-white py-2 rounded-xl text-xs font-semibold">Tutup Kartu ID</button>
+    </div>
+
+    <!-- KONTEN UTAMA APLIKASI -->
+    <div id="app-content" class="hidden">
+        <!-- Navbar -->
+        <header class="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-md border-b border-slate-100 z-50">
+            <div class="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
+                <div class="flex items-center space-x-3">
+                    <img src="logo.png" alt="Logo Perusahaan" class="h-9 w-auto object-contain" onerror="this.style.display='none'; document.getElementById('fallback-logo').style.display='flex';">
+                    <div id="fallback-logo" class="w-10 h-10 rounded-xl bg-blue-600 hidden items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-200">🏢</div>
+                    <span id="brand-navbar" class="text-xl font-bold tracking-tight text-slate-900">Nama Perusahaan<span class="text-blue-600">Office</span></span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <nav class="hidden md:flex space-x-6 text-sm font-medium text-slate-600">
+                        <a href="#absensi" class="hover:text-blue-600 transition">Absensi Kamera QR</a>
+                        <a href="#rekap-absen" class="hover:text-blue-600 transition">Rekap Bulanan</a>
+                        <a href="#cuti" class="hover:text-blue-600 transition">Cuti</a>
+                        <a href="#keuangan" class="hover:text-blue-600 transition">Keuangan</a>
+                        <a href="#karyawan" class="hover:text-blue-600 transition">Karyawan & Divisi</a>
+                        <a href="#payroll" class="hover:text-blue-600 transition">Payroll</a>
+                        <a href="#aset" class="hover:text-blue-600 transition">Aset</a>
+                    </nav>
+                    <button onclick="logoutApp()" class="text-xs bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold px-3 py-2 rounded-lg transition">Keluar</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-6 pt-32 pb-20 space-y-16">
+
+            <!-- Header Info -->
+            <div class="text-center max-w-3xl mx-auto">
+                <span class="bg-blue-50 text-blue-700 text-xs font-semibold px-4 py-1.5 rounded-full uppercase tracking-wider border border-blue-100 inline-block mb-4">
+                    ✨ Enterprise Corporate Edition (White-Label Ready)
+                </span>
+                <h1 class="text-3xl md:text-5xl font-extrabold text-slate-900 tracking-tight">
+                    Sistem Terpadu <span class="text-blue-600">HR, Gaji, & Rekap Bulanan</span>
+                </h1>
+                <p class="mt-3 text-slate-600 text-sm md:text-base">
+                    Kelola absensi QR/GPS/wajah, pengajuan cuti, payroll, laporan kas sederhana, dan aset kantor.
+                </p>
+            </div>
+
+            <!-- PENGATURAN IDENTITAS DAN LOKASI PERUSAHAAN (WHITE LABEL) -->
+            <section id="pengaturan-perusahaan" class="bg-white rounded-3xl p-8 border border-slate-200 shadow-xl space-y-6">
+                <div class="border-b border-slate-100 pb-4">
+                    <h2 class="text-xl font-bold text-slate-900">Pengaturan Perusahaan</h2>
+                    <p class="text-xs text-slate-500">Atur nama brand, identitas, lokasi kantor, dan radius absensi perusahaan ini.</p>
+                </div>
+                <form id="form-pengaturan-perusahaan" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label class="block text-xs font-semibold text-slate-600 mb-1">Nama Perusahaan / Brand</label><input id="cfg-nama" class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm" placeholder="Contoh: PT Maju Bersama" required></div>
+                    <div><label class="block text-xs font-semibold text-slate-600 mb-1">Nama Sistem</label><input id="cfg-sistem" class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm" placeholder="Contoh: Office Suite" required></div>
+                    <div><label class="block text-xs font-semibold text-slate-600 mb-1">Latitude Kantor</label><input id="cfg-lat" type="number" step="any" class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm" placeholder="Koordinat latitude"></div>
+                    <div><label class="block text-xs font-semibold text-slate-600 mb-1">Longitude Kantor</label><input id="cfg-lon" type="number" step="any" class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm" placeholder="Koordinat longitude"></div>
+                    <div><label class="block text-xs font-semibold text-slate-600 mb-1">Radius Absensi (meter)</label><input id="cfg-radius" type="number" min="10" max="5000" value="100" class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm" required></div>
+                    <div class="flex items-end gap-2"><button type="button" onclick="ambilLokasiKantorSaatIni()" class="px-4 py-3 rounded-xl bg-indigo-50 text-indigo-700 text-sm font-semibold">Gunakan GPS perangkat ini</button><button type="submit" class="flex-1 px-4 py-3 rounded-xl bg-blue-600 text-white text-sm font-semibold">Simpan Pengaturan</button></div>
+                </form>
+                <p id="cfg-status" class="text-xs text-slate-500">Pengaturan dan data aplikasi disinkronkan ke ruang data perusahaan di Firebase setelah login.</p>
+            </section>
+
+            <!-- MENU: KAMERA SCANNER ABSENSI HARIAN -->
+            <section id="absensi" class="bg-white rounded-3xl p-8 border border-slate-200 shadow-xl space-y-8">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-6 gap-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">Terminal Kamera Scan QR Absen Harian</h2>
+                        <p class="text-xs text-slate-500">Tepat waktu s.d 08:00 WIB | Terlambat s.d 12:00 WIB | GPS wajib aktif dan harus berada dalam radius kantor yang ditetapkan admin.</p>
+                    </div>
+                    <span class="bg-emerald-50 text-emerald-700 text-xs font-semibold px-3 py-1 rounded-full">Hadir Hari Ini: <span id="count-absen">0</span> Pegawai</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                    <div class="bg-slate-900 p-4 rounded-2xl text-center space-y-3 shadow-inner relative overflow-hidden">
+                        <h4 class="text-xs font-semibold text-slate-300">Live Kamera Resepsionis</h4>
+                        <div class="relative rounded-xl overflow-hidden bg-black aspect-video flex items-center justify-center border border-slate-700">
+                            <video id="webcam-video" playsinline class="w-full h-full object-cover"></video>
+                            <canvas id="webcam-canvas" class="hidden"></canvas>
+                            <div id="cam-status" class="absolute inset-0 bg-slate-900/90 flex items-center justify-center text-xs text-slate-300 p-4 text-center">
+                                Kamera non-aktif. Klik tombol di bawah untuk menyalakan.
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button id="btn-nyala" onclick="mulaiKamera()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition text-xs shadow-md">🎥 Nyalakan Kamera</button>
+                            <button id="btn-mati" onclick="tutupKamera()" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-semibold py-2.5 rounded-xl transition text-xs shadow-md hidden">🛑 Tutup Kamera</button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <h4 class="text-sm font-bold text-slate-800">Status Hasil Pemindaian Terakhir</h4>
+                        <div id="scan-result-box" class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+                            <span class="text-xs text-slate-400 font-medium">Pegawai Terdeteksi:</span>
+                            <h3 id="res-scan-nama" class="text-xl font-extrabold text-slate-800">Belum ada scan</h3>
+                            <p id="res-scan-waktu" class="text-xs text-emerald-600 font-semibold">-</p>
+                        </div>
+
+                        <div class="pt-2 border-t border-slate-200 space-y-2">
+                            <label class="block text-xs font-semibold text-slate-500">Atau Simulasi Pilih Cepat:</label>
+                            <div class="flex gap-2">
+                                <select id="absen-nama" class="flex-1 px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white">
+                                    <option value="">-- Pilih Karyawan --</option>
+                                </select>
+                                <button onclick="simulasiAbsenManual()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-semibold transition">Absen Masuk</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="rounded-2xl border border-blue-100 bg-blue-50 p-5 space-y-3">
+                        <h3 class="font-bold text-blue-900">📍 Verifikasi Lokasi GPS</h3>
+                        <p class="text-xs text-blue-800">GPS wajib diaktifkan. Absensi hanya diterima jika lokasi berada di dalam radius kantor yang diatur admin perusahaan.</p>
+                        <p id="gps-status" class="text-xs text-slate-600">Lokasi belum diambil.</p>
+                    </div>
+                    <div class="rounded-2xl border border-violet-100 bg-violet-50 p-5 space-y-3">
+                        <h3 class="font-bold text-violet-900">🙂 Face Recognition</h3>
+                        <p class="text-xs text-violet-800">Daftarkan wajah karyawan dari kamera, lalu gunakan tombol verifikasi wajah untuk absensi.</p>
+                        <div class="flex flex-wrap gap-2">
+                            <select id="face-nama" class="flex-1 min-w-0 px-3 py-2 rounded-lg border border-violet-200 text-xs bg-white"><option value="">Pilih karyawan</option></select>
+                            <button type="button" onclick="daftarkanWajah()" class="bg-violet-600 text-white px-3 py-2 rounded-lg text-xs font-semibold">Daftarkan Wajah</button>
+                            <button type="button" onclick="absenDenganWajah()" class="bg-indigo-600 text-white px-3 py-2 rounded-lg text-xs font-semibold">Absen dengan Wajah</button>
+                        </div>
+                        <p id="face-status" class="text-xs text-slate-600">Model pengenalan wajah akan dimuat saat diperlukan.</p>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-500 border-b border-slate-100">
+                                <th class="p-4 font-semibold">Nama Pegawai</th>
+                                <th class="p-4 font-semibold">Waktu Check-in</th>
+                                <th class="p-4 font-semibold">Metode</th>
+                                <th class="p-4 font-semibold text-right">Status Keterangan</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabel-absen-data"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- MENU: REKAPITULASI AKUMULASI BULANAN -->
+            <section id="rekap-absen" class="bg-white rounded-3xl p-8 border border-slate-200 shadow-xl space-y-6">
+                <div class="border-b border-slate-100 pb-4">
+                    <h2 class="text-xl font-bold text-slate-900">Rekapitulasi Akumulasi Kehadiran Bulanan</h2>
+                    <p class="text-xs text-slate-500">Akumulasi total kehadiran tepat waktu dan terlambat per karyawan.</p>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-500 border-b border-slate-100">
+                                <th class="p-4 font-semibold">Nama Pegawai</th>
+                                <th class="p-4 font-semibold">Divisi</th>
+                                <th class="p-4 font-semibold text-center">Total Hadir</th>
+                                <th class="p-4 font-semibold text-center text-emerald-600">Tepat Waktu</th>
+                                <th class="p-4 font-semibold text-center text-rose-600">Terlambat</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabel-rekap-bulanan"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 1. MANAJEMEN KARYAWAN & DIVISI -->
+            <section id="karyawan" class="bg-white rounded-3xl p-8 border border-slate-200 shadow-xl space-y-8">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-6 gap-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">1. Manajemen Karyawan & Divisi</h2>
+                        <p class="text-xs text-slate-500">Tambah data pegawai dan cetak kartu QR ID personal.</p>
+                    </div>
+                    <span class="bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full">Total: <span id="count-karyawan">0</span> Pegawai</span>
+                </div>
+
+                <form id="form-karyawan" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <input type="text" id="nama-kry" placeholder="Nama Lengkap Pegawai" required class="px-4 py-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <select id="divisi-kry" class="px-4 py-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="Direksi & Manajemen">Direksi & Manajemen</option>
+                        <option value="IT & Engineering">IT & Engineering</option>
+                        <option value="Keuangan & Akuntansi">Keuangan & Akuntansi</option>
+                        <option value="Marketing & Sales">Marketing & Sales</option>
+                        <option value="HR & GA">HR & GA</option>
+                    </select>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-xl transition shadow-md text-sm">+ Tambah Karyawan</button>
+                </form>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-500 border-b border-slate-100">
+                                <th class="p-4 font-semibold">Nama Pegawai</th>
+                                <th class="p-4 font-semibold">Divisi / Departemen</th>
+                                <th class="p-4 font-semibold">Status</th>
+                                <th class="p-4 font-semibold text-right">Aksi / Cetak Kartu ID QR</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabel-karyawan-data"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 2. PAYROLL & CETAK SLIP GAJI -->
+            <section id="payroll" class="bg-white rounded-3xl p-8 border border-slate-200 shadow-xl space-y-8">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-6 gap-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">2. Rekapitulasi Nominal Gaji & Cetak Slip</h2>
+                        <p class="text-xs text-slate-500">Kelola komponen gaji dan cetak dokumen slip gaji resmi.</p>
+                    </div>
+                </div>
+
+                <form id="form-payroll" class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-6 rounded-2xl border border-slate-200 items-end">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Pegawai</label>
+                        <input type="text" id="pay-nama" placeholder="Cth: Ahmad Fauzi" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm bg-white">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Gaji Pokok (Rp)</label>
+                        <input type="number" id="pay-pokok" placeholder="7500000" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm bg-white">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Tunjangan / Lembur (Rp)</label>
+                        <input type="number" id="pay-tunjangan" placeholder="1500000" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm bg-white">
+                    </div>
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2.5 rounded-xl transition shadow-md text-sm h-[42px]">Simpan ke Rekap</button>
+                </form>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-500 border-b border-slate-100">
+                                <th class="p-4 font-semibold">Nama Pegawai</th>
+                                <th class="p-4 font-semibold">Gaji Pokok</th>
+                                <th class="p-4 font-semibold">Tunjangan</th>
+                                <th class="p-4 font-semibold text-rose-600">PPh 21 (5%)</th>
+                                <th class="p-4 font-semibold text-emerald-600">Take Home Pay</th>
+                                <th class="p-4 font-semibold text-right">Aksi / Cetak</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabel-payroll-data"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 3. PENGELOLAAN CUTI KARYAWAN -->
+            <section id="cuti" class="bg-white rounded-3xl p-8 border border-slate-200 shadow-xl space-y-6">
+                <div class="border-b border-slate-100 pb-4"><h2 class="text-xl font-bold text-slate-900">3. Pengelolaan Cuti & Izin Karyawan</h2><p class="text-xs text-slate-500">Pengajuan, pemantauan, dan persetujuan cuti/izin. Data tersimpan di browser ini.</p></div>
+                <form id="form-cuti" class="grid grid-cols-1 md:grid-cols-5 gap-3 bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                    <select id="cuti-nama" required class="px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white"><option value="">Pilih Karyawan</option></select>
+                    <select id="cuti-jenis" class="px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white"><option>Cuti Tahunan</option><option>Izin</option><option>Sakit</option><option>Keperluan Keluarga</option></select>
+                    <input type="date" id="cuti-mulai" required class="px-3 py-2 rounded-xl border border-slate-300 text-sm">
+                    <input type="date" id="cuti-selesai" required class="px-3 py-2 rounded-xl border border-slate-300 text-sm">
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-4 py-2 text-sm font-semibold">Ajukan Cuti/Izin</button>
+                    <textarea id="cuti-alasan" placeholder="Alasan / keterangan" class="md:col-span-5 px-3 py-2 rounded-xl border border-slate-300 text-sm"></textarea>
+                </form>
+                <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="bg-slate-50 text-slate-500"><th class="p-3">Karyawan</th><th class="p-3">Jenis</th><th class="p-3">Tanggal</th><th class="p-3">Alasan</th><th class="p-3">Status</th><th class="p-3">Aksi</th></tr></thead><tbody id="tabel-cuti"></tbody></table></div>
+            </section>
+
+            <!-- 4. LAPORAN KEUANGAN KORPORAT -->
+            <section id="keuangan" class="bg-white rounded-3xl p-8 border border-slate-200 shadow-xl space-y-6">
+                <div class="border-b border-slate-100 pb-4"><h2 class="text-xl font-bold text-slate-900">4. Laporan Keuangan Perusahaan</h2><p class="text-xs text-slate-500">Pencatatan pemasukan dan pengeluaran serta ringkasan saldo berdasarkan transaksi yang dimasukkan.</p></div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div class="bg-emerald-50 rounded-2xl p-4"><p class="text-xs text-emerald-700">Total Pemasukan</p><h3 id="total-pemasukan" class="text-xl font-bold text-emerald-800">Rp 0</h3></div>
+                    <div class="bg-rose-50 rounded-2xl p-4"><p class="text-xs text-rose-700">Total Pengeluaran</p><h3 id="total-pengeluaran" class="text-xl font-bold text-rose-800">Rp 0</h3></div>
+                    <div class="bg-blue-50 rounded-2xl p-4"><p class="text-xs text-blue-700">Saldo Bersih</p><h3 id="saldo-keuangan" class="text-xl font-bold text-blue-800">Rp 0</h3></div>
+                </div>
+                <form id="form-keuangan" class="grid grid-cols-1 md:grid-cols-5 gap-3 bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                    <select id="keu-jenis" class="px-3 py-2 rounded-xl border border-slate-300 text-sm"><option value="Pemasukan">Pemasukan</option><option value="Pengeluaran">Pengeluaran</option></select>
+                    <input id="keu-tanggal" type="date" required class="px-3 py-2 rounded-xl border border-slate-300 text-sm">
+                    <input id="keu-kategori" placeholder="Kategori transaksi" required class="px-3 py-2 rounded-xl border border-slate-300 text-sm">
+                    <input id="keu-nominal" type="number" min="1" placeholder="Nominal (Rp)" required class="px-3 py-2 rounded-xl border border-slate-300 text-sm">
+                    <button class="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-4 py-2 text-sm font-semibold">Simpan Transaksi</button>
+                    <input id="keu-keterangan" placeholder="Keterangan / sumber transaksi" class="md:col-span-5 px-3 py-2 rounded-xl border border-slate-300 text-sm">
+                </form>
+                <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="bg-slate-50 text-slate-500"><th class="p-3">Tanggal</th><th class="p-3">Jenis</th><th class="p-3">Kategori</th><th class="p-3">Keterangan</th><th class="p-3 text-right">Nominal</th><th class="p-3">Aksi</th></tr></thead><tbody id="tabel-keuangan"></tbody></table></div>
+                <p class="text-xs text-amber-700 bg-amber-50 p-3 rounded-xl">Catatan: modul ini merupakan pembukuan kas sederhana berdasarkan transaksi manual, belum mencakup jurnal akuntansi, neraca, arus kas otomatis, rekonsiliasi bank, atau perpajakan.</p>
+            </section>
+
+            <!-- 5. PELAPORAN ASET & INVENTARIS KANTOR -->
+            <section id="aset" class="bg-white rounded-3xl p-8 border border-slate-200 shadow-xl space-y-8">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-6 gap-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">3. Pelaporan Aset & Inventaris Kantor</h2>
+                        <p class="text-xs text-slate-500">Catat aset fisik perusahaan.</p>
+                    </div>
+                    <span class="bg-emerald-50 text-emerald-700 text-xs font-semibold px-3 py-1 rounded-full">Total Aset: <span id="count-aset">0</span> Item</span>
+                </div>
+
+                <form id="form-aset" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <input type="text" id="nama-aset" placeholder="Nama Barang / Aset (cth: Laptop Dell Core i7)" required class="px-4 py-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <input type="text" id="lokasi-aset" placeholder="Lokasi Ruangan / Pemegang" required class="px-4 py-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-3 rounded-xl transition shadow-md text-sm">+ Catat Aset Baru</button>
+                </form>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-500 border-b border-slate-100">
+                                <th class="p-4 font-semibold">Nama Aset / Barang</th>
+                                <th class="p-4 font-semibold">Lokasi / Penanggung Jawab</th>
+                                <th class="p-4 font-semibold">Kondisi</th>
+                                <th class="p-4 font-semibold text-right">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabel-aset-data"></tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-slate-950 text-slate-400 py-12 text-center text-sm border-t border-slate-800">
+            <p id="brand-footer">&copy; 2026 Nama Perusahaan. Sistem Administrasi Perusahaan.</p>
+        </footer>
+    </div>
+
+    <!-- Script Logika & Validasi Jam Dzuhur (12:00) -->
+    <script>
+        // Firebase: autentikasi dan penyimpanan cloud per perusahaan.
+        const firebaseConfig = {
+            apiKey: "AIzaSyACrXLi1V9sUF7_mSj9CBdAgXunjW6x3CI",
+            authDomain: "coba-323b0.firebaseapp.com",
+            projectId: "coba-323b0",
+            storageBucket: "coba-323b0.firebasestorage.app",
+            messagingSenderId: "959551605406",
+            appId: "1:959551605406:web:573e1f3d2cf6536520098f",
+            measurementId: "G-TTGBV6MB2J"
+        };
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        let currentUser = null;
+        let currentCompanyId = null;
+        let cloudReady = false;
+        let cloudSaveTimer = null;
+        const APP_DATA_KEYS = [
+            'biztren_office_karyawan','biztren_office_absen','biztren_office_payroll',
+            'biztren_office_aset','biztren_office_cuti','biztren_office_keuangan',
+            'biztren_company_settings'
+        ];
+        const nativeStorageSetItem = localStorage.setItem.bind(localStorage);
+        localStorage.setItem = function(key, value) {
+            nativeStorageSetItem(key, value);
+            if (cloudReady && APP_DATA_KEYS.includes(key)) jadwalkanSimpanCloud();
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            auth.onAuthStateChanged(async user => {
+                if (!user) {
+                    currentUser = null; currentCompanyId = null; cloudReady = false;
+                    document.getElementById('login-modal').style.display = 'flex';
+                    document.getElementById('app-content').classList.add('hidden');
+                    return;
+                }
+                try {
+                    currentUser = user;
+                    await siapkanProfilPerusahaan(user);
+                    await muatDataCloud();
+                    cloudReady = true;
+                    bukaAplikasi();
+                } catch (err) {
+                    console.error(err);
+                    await auth.signOut();
+                    tampilkanErrorLogin('Akun berhasil diverifikasi, tetapi profil perusahaan belum dapat dibaca. Periksa dokumen users/' + user.uid + ' dan aturan Firestore.');
+                }
+            });
+        });
+
+        document.getElementById('form-login').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const email = document.getElementById('input-email').value.trim();
+            const password = document.getElementById('input-password').value;
+            const btn = document.getElementById('btn-login');
+            btn.disabled = true; btn.textContent = 'Memverifikasi...';
+            tampilkanErrorLogin('');
+            try { await auth.signInWithEmailAndPassword(email, password); }
+            catch (err) {
+                const pesan = ({'auth/invalid-credential':'Email atau kata sandi tidak benar.','auth/user-not-found':'Akun belum terdaftar di Firebase Authentication.','auth/wrong-password':'Kata sandi tidak benar.','auth/too-many-requests':'Terlalu banyak percobaan. Coba beberapa saat lagi.'})[err.code] || err.message;
+                tampilkanErrorLogin(pesan);
+            } finally { btn.disabled = false; btn.textContent = 'Masuk'; }
+        });
+
+        function tampilkanErrorLogin(pesan) {
+            const el = document.getElementById('login-error');
+            el.textContent = pesan || '';
+            el.classList.toggle('hidden', !pesan);
+        }
+
+        async function siapkanProfilPerusahaan(user) {
+            const profileRef = db.collection('users').doc(user.uid);
+            const profileSnap = await profileRef.get();
+            if (!profileSnap.exists) {
+                // Pembuatan tenant awal hanya diizinkan untuk UID admin utama yang sudah disiapkan.
+                if (user.uid !== '8EIBIrZ29Hchw3SaqSI88LkhCJf2') throw new Error('Profil pengguna belum dibuat oleh administrator perusahaan.');
+                const companyId = 'company-' + user.uid;
+                await profileRef.set({ companyId, role: 'owner', active: true, email: user.email, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+                await db.collection('companies').doc(companyId).set({ name: 'Nama Perusahaan', systemName: 'Office Suite', createdAt: firebase.firestore.FieldValue.serverTimestamp() }, {merge:true});
+                currentCompanyId = companyId;
+            } else {
+                const profile = profileSnap.data();
+                if (profile.active === false || !profile.companyId) throw new Error('Akun dinonaktifkan atau belum terhubung ke perusahaan.');
+                currentCompanyId = profile.companyId;
+            }
+        }
+
+        function refDataCloud() { return db.collection('companies').doc(currentCompanyId).collection('appData').doc('main'); }
+        async function muatDataCloud() {
+            const snap = await refDataCloud().get();
+            if (snap.exists) {
+                const data = snap.data();
+                APP_DATA_KEYS.forEach(key => { if (Object.prototype.hasOwnProperty.call(data, key)) nativeStorageSetItem(key, JSON.stringify(data[key])); });
+            }
+            const companySnap = await db.collection('companies').doc(currentCompanyId).get();
+            if (companySnap.exists) {
+                const c = companySnap.data();
+                if (c.name || c.systemName || c.latitude || c.longitude) {
+                    const existing = JSON.parse(localStorage.getItem('biztren_company_settings') || 'null') || {};
+                    const settings = { ...existing, nama: c.name || existing.nama || 'Nama Perusahaan', sistem: c.systemName || existing.sistem || 'Office Suite', latitude: c.latitude ?? existing.latitude ?? '', longitude: c.longitude ?? existing.longitude ?? '', radius: c.radius || existing.radius || 100 };
+                    nativeStorageSetItem('biztren_company_settings', JSON.stringify(settings));
+                }
+            }
+        }
+        function jadwalkanSimpanCloud() {
+            clearTimeout(cloudSaveTimer);
+            cloudSaveTimer = setTimeout(async () => {
+                if (!cloudReady || !currentCompanyId) return;
+                try {
+                    const payload = {};
+                    APP_DATA_KEYS.forEach(key => { const raw = localStorage.getItem(key); if (raw !== null) payload[key] = JSON.parse(raw); });
+                    await refDataCloud().set(payload, {merge:true});
+                } catch (err) { console.error('Gagal menyimpan data cloud:', err); alert('Data tersimpan di perangkat, tetapi sinkronisasi cloud gagal: ' + err.message); }
+            }, 500);
+        }
+
+        function bukaAplikasi() {
+            terapkanIdentitasPerusahaan();
+            document.getElementById('login-modal').style.display = 'none';
+            document.getElementById('app-content').classList.remove('hidden');
+            renderKaryawan();
+            renderAbsenSelect();
+            renderAbsen();
+            renderRekapBulanan();
+            renderPayroll();
+            renderAset();
+            renderCuti();
+            renderKeuangan();
+            renderCutiSelect();
+            renderFaceSelect();
+            document.getElementById('keu-tanggal').value = tanggalHariIni();
+        }
+
+        async function logoutApp() {
+            tutupKamera();
+            cloudReady = false;
+            try { await auth.signOut(); } catch (err) { alert('Gagal keluar: ' + err.message); }
+        }
+
+        let karyawanList = JSON.parse(localStorage.getItem('biztren_office_karyawan')) || [
+            { nama: "Ahmad Fauzi, S.Kom", divisi: "IT & Engineering", status: "Aktif" },
+            { nama: "Siti Aminah, S.E.", divisi: "Keuangan & Akuntansi", status: "Aktif" }
+        ];
+
+        let absenList = JSON.parse(localStorage.getItem('biztren_office_absen')) || [
+            { nama: "Ahmad Fauzi, S.Kom", waktu: "07:45", statusAbsen: "Tepat Waktu", metode: "Scan Kartu QR ID" }
+        ];
+
+        let payrollList = JSON.parse(localStorage.getItem('biztren_office_payroll')) || [
+            { nama: "Ahmad Fauzi, S.Kom", pokok: 7500000, tunjangan: 1500000 },
+            { nama: "Siti Aminah, S.E.", pokok: 6500000, tunjangan: 1000000 }
+        ];
+
+        let asetList = JSON.parse(localStorage.getItem('biztren_office_aset')) || [
+            { nama: "MacBook Pro M2 (Direksi)", lokasi: "Ruang CEO", kondisi: "Baik" },
+            { nama: "Printer Epson L3110", lokasi: "Administrasi HR", kondisi: "Baik" }
+        ];
+
+        let cutiList = JSON.parse(localStorage.getItem('biztren_office_cuti')) || [];
+        let keuanganList = JSON.parse(localStorage.getItem('biztren_office_keuangan')) || [];
+        const DEFAULT_COMPANY_SETTINGS = { nama: 'Nama Perusahaan', sistem: 'Office Suite', latitude: '', longitude: '', radius: 100 };
+        let companySettings = { ...DEFAULT_COMPANY_SETTINGS, ...(JSON.parse(localStorage.getItem('biztren_company_settings') || 'null') || {}) };
+
+        function terapkanIdentitasPerusahaan() {
+            const nama = companySettings.nama || 'Nama Perusahaan';
+            const sistem = companySettings.sistem || 'Office Suite';
+            document.title = `${nama} | ${sistem}`;
+            const navbar = document.getElementById('brand-navbar');
+            if (navbar) navbar.innerHTML = `${escapeBrand(nama)}<span class="text-blue-600">${escapeBrand(sistem)}</span>`;
+            const slip = document.getElementById('brand-slip'); if (slip) slip.textContent = nama;
+            const card = document.getElementById('brand-card'); if (card) card.textContent = nama;
+            const footer = document.getElementById('brand-footer'); if (footer) footer.textContent = `© 2026 ${nama}. Sistem Administrasi Perusahaan.`;
+            document.getElementById('cfg-nama').value = companySettings.nama;
+            document.getElementById('cfg-sistem').value = companySettings.sistem;
+            document.getElementById('cfg-lat').value = companySettings.latitude;
+            document.getElementById('cfg-lon').value = companySettings.longitude;
+            document.getElementById('cfg-radius').value = companySettings.radius || 100;
+        }
+        function escapeBrand(value) { return String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+        function simpanPengaturanPerusahaan(e) {
+            e.preventDefault();
+            const radius = Number(document.getElementById('cfg-radius').value);
+            const lat = document.getElementById('cfg-lat').value.trim();
+            const lon = document.getElementById('cfg-lon').value.trim();
+            if (!Number.isFinite(radius) || radius < 10 || radius > 5000) { alert('Radius harus antara 10 sampai 5.000 meter.'); return; }
+            if ((lat && !lon) || (!lat && lon)) { alert('Latitude dan longitude harus diisi berpasangan.'); return; }
+            if (lat && (Number(lat) < -90 || Number(lat) > 90 || Number(lon) < -180 || Number(lon) > 180)) { alert('Koordinat latitude/longitude tidak valid.'); return; }
+            companySettings = { nama: document.getElementById('cfg-nama').value.trim(), sistem: document.getElementById('cfg-sistem').value.trim(), latitude: lat, longitude: lon, radius };
+            localStorage.setItem('biztren_company_settings', JSON.stringify(companySettings));
+            terapkanIdentitasPerusahaan();
+            if (currentCompanyId) db.collection('companies').doc(currentCompanyId).set({name:companySettings.nama, systemName:companySettings.sistem, latitude:companySettings.latitude === '' ? null : Number(companySettings.latitude), longitude:companySettings.longitude === '' ? null : Number(companySettings.longitude), radius:companySettings.radius, updatedAt:firebase.firestore.FieldValue.serverTimestamp()}, {merge:true}).then(() => { document.getElementById('cfg-status').textContent = 'Pengaturan perusahaan tersimpan dan tersinkron ke Firebase.'; }).catch(err => { document.getElementById('cfg-status').textContent = 'Gagal sinkron ke Firebase: ' + err.message; });
+        }
+        function ambilLokasiKantorSaatIni() {
+            if (!navigator.geolocation) { alert('Browser tidak mendukung GPS.'); return; }
+            const status = document.getElementById('cfg-status'); status.textContent = 'Mengambil koordinat GPS perangkat...';
+            navigator.geolocation.getCurrentPosition(pos => {
+                document.getElementById('cfg-lat').value = pos.coords.latitude.toFixed(7);
+                document.getElementById('cfg-lon').value = pos.coords.longitude.toFixed(7);
+                status.textContent = 'Koordinat perangkat terisi. Pastikan perangkat berada tepat di lokasi kantor sebelum menyimpan.';
+            }, err => { status.textContent = 'Gagal mengambil lokasi: ' + err.message; }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+        }
+        document.getElementById('form-pengaturan-perusahaan').addEventListener('submit', simpanPengaturanPerusahaan);
+
+        let faceModelsReady = false;
+        const FACE_MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+
+        let videoStream = null;
+        let qrProcessing = false;
+        function mulaiKamera() {
+            const video = document.getElementById('webcam-video');
+            const statusBox = document.getElementById('cam-status');
+            const btnNyala = document.getElementById('btn-nyala');
+            const btnMati = document.getElementById('btn-mati');
+            
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+                .then(stream => {
+                    videoStream = stream;
+                    video.srcObject = stream;
+                    video.setAttribute("playsinline", true);
+                    video.play();
+                    statusBox.style.display = 'none';
+                    btnNyala.classList.add('hidden');
+                    btnMati.classList.remove('hidden');
+                    requestAnimationFrame(scanTick);
+                })
+                .catch(err => {
+                    alert("Gagal mengakses kamera: " + err.message);
+                });
+        }
+
+        function tutupKamera() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+            const video = document.getElementById('webcam-video');
+            video.srcObject = null;
+            document.getElementById('cam-status').style.display = 'flex';
+            document.getElementById('btn-nyala').classList.remove('hidden');
+            document.getElementById('btn-mati').classList.add('hidden');
+        }
+
+        function scanTick() {
+            const video = document.getElementById('webcam-video');
+            const canvasElement = document.getElementById('webcam-canvas');
+            const canvas = canvasElement.getContext('2d');
+
+            if (video.readyState === video.HAVE_ENOUGH_DATA && videoStream) {
+                canvasElement.height = video.videoHeight;
+                canvasElement.width = video.videoWidth;
+                canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+                const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+                
+                const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+                if (code && !qrProcessing) {
+                    qrProcessing = true;
+                    Promise.resolve(catatAbsenMasuk(code.data, "Scan Kartu QR ID")).finally(() => setTimeout(() => { qrProcessing = false; }, 1800));
+                }
+            }
+            if (videoStream) {
+                requestAnimationFrame(scanTick);
+            }
+        }
+
+        // Absensi: tanggal, waktu, dan lokasi GPS disimpan di localStorage.
+        function tanggalHariIni() {
+            const d = new Date();
+            return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+        }
+
+        function ambilLokasiGPS() {
+            return new Promise((resolve, reject) => {
+                if (!navigator.geolocation) return reject(new Error('Perangkat/browser tidak mendukung GPS.'));
+                navigator.geolocation.getCurrentPosition(
+                    pos => resolve({lat:pos.coords.latitude, lon:pos.coords.longitude, akurasi:Math.round(pos.coords.accuracy)}),
+                    err => reject(new Error(err.code === 1 ? 'Izin lokasi ditolak. Aktifkan izin lokasi untuk melakukan absensi.' : 'Lokasi GPS tidak berhasil diperoleh. Coba lagi di area terbuka.')),
+                    {enableHighAccuracy:true, timeout:15000, maximumAge:0}
+                );
+            });
+        }
+
+        function hitungJarakMeter(lat1, lon1, lat2, lon2) {
+            const R = 6371000, rad = v => v * Math.PI / 180;
+            const dLat = rad(lat2-lat1), dLon = rad(lon2-lon1);
+            const a = Math.sin(dLat/2)**2 + Math.cos(rad(lat1))*Math.cos(rad(lat2))*Math.sin(dLon/2)**2;
+            return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        async function catatAbsenMasuk(namaPegawai, metode) {
+            if (!companySettings.latitude || !companySettings.longitude) {
+                alert('Absensi belum dapat dilakukan. Admin perusahaan harus mengatur titik lokasi kantor terlebih dahulu pada menu Pengaturan Perusahaan.');
+                return;
+            }
+            const pegawaiTerdaftar = karyawanList.some(k => k.nama === namaPegawai && k.status !== 'Nonaktif');
+            if (!pegawaiTerdaftar) { alert('QR/wajah tidak cocok dengan karyawan aktif yang terdaftar.'); return; }
+            const now = new Date();
+            const jam = now.getHours(), menit = now.getMinutes();
+            const waktuStr = jam.toString().padStart(2,'0') + ':' + menit.toString().padStart(2,'0');
+            const tanggal = tanggalHariIni();
+            let statusAbsen = (jam > 8 || (jam === 8 && menit > 0)) ? 'Terlambat' : 'Tepat Waktu';
+            if (jam >= 12) { alert('Gagal! Scan setelah pukul 12:00 dianggap tidak hadir.'); return; }
+            if (absenList.some(a => a.nama === namaPegawai && a.tanggal === tanggal)) {
+                document.getElementById('res-scan-nama').innerText = namaPegawai + ' (Sudah Absen)';
+                document.getElementById('res-scan-waktu').innerText = 'Absensi hari ini sudah tercatat sebelumnya.'; return;
+            }
+            document.getElementById('gps-status').innerText = 'Memverifikasi lokasi GPS dan jarak dari kantor...';
+            let gps;
+            try { gps = await ambilLokasiGPS(); }
+            catch (err) { document.getElementById('gps-status').innerText = err.message; alert(err.message); return; }
+            const jarak = hitungJarakMeter(gps.lat, gps.lon, Number(companySettings.latitude), Number(companySettings.longitude));
+            if (gps.akurasi > 100) {
+                const pesan = `Akurasi GPS terlalu rendah (±${gps.akurasi} m). Coba lagi di tempat terbuka.`;
+                document.getElementById('gps-status').innerText = pesan; alert(pesan); return;
+            }
+            if (jarak > Number(companySettings.radius)) {
+                const pesan = `Absensi ditolak. Anda berada sekitar ${Math.round(jarak)} meter dari kantor, sedangkan batas yang diizinkan ${companySettings.radius} meter.`;
+                document.getElementById('gps-status').innerText = pesan; alert(pesan); return;
+            }
+            const record = {nama:namaPegawai, tanggal, waktu:waktuStr+' WIB', statusAbsen, metode, latitude:gps.lat, longitude:gps.lon, akurasi:gps.akurasi, jarakMeter:Math.round(jarak)};
+            absenList.unshift(record);
+            renderAbsen(); renderRekapBulanan();
+            document.getElementById('gps-status').innerText = `Lokasi diterima: jarak ${Math.round(jarak)} m dari kantor (batas ${companySettings.radius} m), akurasi GPS ±${gps.akurasi} m.`;
+            document.getElementById('res-scan-nama').innerText = namaPegawai;
+            const badgeColor = statusAbsen === 'Terlambat' ? 'text-rose-600' : 'text-emerald-600';
+            document.getElementById('res-scan-waktu').innerHTML = `<span class="${badgeColor} font-bold">${statusAbsen}</span> pada pukul ${waktuStr} WIB`;
+        }
+
+        function simulasiAbsenManual() {
+            const nama = document.getElementById('absen-nama').value;
+            if(!nama) { alert("Pilih karyawan dulu!"); return; }
+            catatAbsenMasuk(nama, "Simulasi Pilih Cepat");
+            document.getElementById('absen-nama').value = '';
+        }
+
+        function renderCutiSelect() {
+            const el=document.getElementById('cuti-nama'); if(!el) return;
+            el.innerHTML='<option value="">Pilih Karyawan</option>'+karyawanList.map(k=>`<option value="${k.nama}">${k.nama}</option>`).join('');
+        }
+        function renderFaceSelect() {
+            const el=document.getElementById('face-nama'); if(!el) return;
+            el.innerHTML='<option value="">Pilih karyawan</option>'+karyawanList.map(k=>`<option value="${k.nama}">${k.nama}${k.faceDescriptor?' ✓':''}</option>`).join('');
+        }
+        async function siapkanModelWajah() {
+            if(faceModelsReady) return true;
+            const status=document.getElementById('face-status');
+            if(!window.faceapi){status.innerText='Library Face Recognition gagal dimuat. Periksa koneksi internet.';return false;}
+            status.innerText='Memuat model pengenalan wajah...';
+            try {
+                await Promise.all([faceapi.nets.tinyFaceDetector.loadFromUri(FACE_MODEL_URL),faceapi.nets.faceLandmark68Net.loadFromUri(FACE_MODEL_URL),faceapi.nets.faceRecognitionNet.loadFromUri(FACE_MODEL_URL)]);
+                faceModelsReady=true; status.innerText='Model siap. Kamera aktif diperlukan.'; return true;
+            } catch(e){status.innerText='Model wajah gagal dimuat. Periksa koneksi internet.';return false;}
+        }
+        async function daftarkanWajah() {
+            const nama=document.getElementById('face-nama').value;
+            if(!nama){alert('Pilih karyawan terlebih dahulu.');return;}
+            if(!await siapkanModelWajah()) return;
+            const video=document.getElementById('webcam-video');
+            if(!videoStream){alert('Nyalakan kamera absensi terlebih dahulu.');return;}
+            document.getElementById('face-status').innerText='Arahkan wajah ke kamera, hadap lurus, lalu tunggu...';
+            try {
+                let hasil=null;
+                for(let i=0;i<12 && !hasil;i++){await new Promise(r=>setTimeout(r,350));hasil=await faceapi.detectSingleFace(video,new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();}
+                if(!hasil){alert('Wajah belum terdeteksi. Pastikan pencahayaan cukup dan wajah terlihat jelas.');return;}
+                const k=karyawanList.find(x=>x.nama===nama); if(!k)return;
+                k.faceDescriptor=Array.from(hasil.descriptor);
+                localStorage.setItem('biztren_office_karyawan',JSON.stringify(karyawanList));
+                renderKaryawan();renderFaceSelect();
+                document.getElementById('face-status').innerText='Wajah '+nama+' berhasil didaftarkan pada perangkat ini.';
+            } catch(e){alert('Gagal mendaftarkan wajah: '+e.message);}
+        }
+        async function absenDenganWajah() {
+            if(!await siapkanModelWajah()) return;
+            const video=document.getElementById('webcam-video');
+            if(!videoStream){alert('Nyalakan kamera absensi terlebih dahulu.');return;}
+            document.getElementById('face-status').innerText='Mengenali wajah...';
+            try {
+                const hasil=await faceapi.detectSingleFace(video,new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+                if(!hasil){document.getElementById('face-status').innerText='Wajah tidak terdeteksi.';return;}
+                const kandidat=karyawanList.filter(k=>Array.isArray(k.faceDescriptor));
+                if(!kandidat.length){alert('Belum ada wajah karyawan yang didaftarkan.');return;}
+                let terbaik=null, jarak=Infinity;
+                kandidat.forEach(k=>{const d=faceapi.euclideanDistance(hasil.descriptor,new Float32Array(k.faceDescriptor));if(d<jarak){jarak=d;terbaik=k;}});
+                if(!terbaik || jarak>0.50){document.getElementById('face-status').innerText='Wajah tidak cocok dengan data karyawan terdaftar.';return;}
+                document.getElementById('face-status').innerText=`Wajah dikenali: ${terbaik.nama} (skor jarak ${jarak.toFixed(3)}).`;
+                await catatAbsenMasuk(terbaik.nama,'Face Recognition');
+            } catch(e){document.getElementById('face-status').innerText='Terjadi kendala saat mengenali wajah.';}
+        }
+
+        function renderCuti() {
+            const tb=document.getElementById('tabel-cuti'); if(!tb)return;
+            tb.innerHTML=cutiList.map((c,i)=>`<tr class="border-b"><td class="p-3">${c.nama}</td><td class="p-3">${c.jenis}</td><td class="p-3">${c.mulai} s.d. ${c.selesai}</td><td class="p-3">${c.alasan||'-'}</td><td class="p-3 font-semibold">${c.status}</td><td class="p-3 whitespace-nowrap">${c.status==='Menunggu'?`<button onclick="ubahStatusCuti(${i},'Disetujui')" class="text-emerald-600 mr-2">Setujui</button><button onclick="ubahStatusCuti(${i},'Ditolak')" class="text-rose-600 mr-2">Tolak</button>`:''}<button onclick="hapusCuti(${i})" class="text-slate-500">Hapus</button></td></tr>`).join('');
+            localStorage.setItem('biztren_office_cuti',JSON.stringify(cutiList));
+        }
+        function ubahStatusCuti(i,status){cutiList[i].status=status;renderCuti();}
+        function hapusCuti(i){if(confirm('Hapus pengajuan ini?')){cutiList.splice(i,1);renderCuti();}}
+        function renderKeuangan(){
+            const tb=document.getElementById('tabel-keuangan');if(!tb)return;
+            const masuk=keuanganList.filter(x=>x.jenis==='Pemasukan').reduce((a,x)=>a+x.nominal,0);
+            const keluar=keuanganList.filter(x=>x.jenis==='Pengeluaran').reduce((a,x)=>a+x.nominal,0);
+            const rp=n=>'Rp '+n.toLocaleString('id-ID');
+            document.getElementById('total-pemasukan').innerText=rp(masuk);document.getElementById('total-pengeluaran').innerText=rp(keluar);document.getElementById('saldo-keuangan').innerText=rp(masuk-keluar);
+            tb.innerHTML=keuanganList.map((x,i)=>`<tr class="border-b"><td class="p-3">${x.tanggal}</td><td class="p-3">${x.jenis}</td><td class="p-3">${x.kategori}</td><td class="p-3">${x.keterangan||'-'}</td><td class="p-3 text-right font-semibold">${rp(x.nominal)}</td><td class="p-3"><button onclick="hapusTransaksi(${i})" class="text-rose-600">Hapus</button></td></tr>`).join('');
+            localStorage.setItem('biztren_office_keuangan',JSON.stringify(keuanganList));
+        }
+        function hapusTransaksi(i){if(confirm('Hapus transaksi ini?')){keuanganList.splice(i,1);renderKeuangan();}}
+
+        function renderKaryawan() {
+            const tbody = document.getElementById('tabel-karyawan-data');
+            tbody.innerHTML = '';
+            document.getElementById('count-karyawan').innerText = karyawanList.length;
+
+            karyawanList.forEach((item, index) => {
+                tbody.innerHTML += `
+                    <tr class="border-b border-slate-100 hover:bg-slate-50">
+                        <td class="p-4 font-medium text-slate-900">${item.nama}</td>
+                        <td class="p-4 text-slate-600">${item.divisi}</td>
+                        <td class="p-4"><span class="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-semibold">${item.status}</span></td>
+                        <td class="p-4 text-right space-x-2">
+                            <button onclick="cetakKartuID('${item.nama}', '${item.divisi}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-3 py-1.5 rounded-lg text-xs font-semibold transition">🪪 Cetak ID QR</button>
+                            <button onclick="hapusKaryawan(${index})" class="text-rose-500 hover:text-rose-700 text-xs font-semibold">Hapus</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            localStorage.setItem('biztren_office_karyawan', JSON.stringify(karyawanList));
+            renderAbsenSelect();
+            renderRekapBulanan();
+        }
+
+        function cetakKartuID(nama, divisi) {
+            document.getElementById('card-print-nama').innerText = nama;
+            document.getElementById('card-print-divisi').innerText = divisi;
+
+            const renderBox = document.getElementById('card-qr-render');
+            renderBox.innerHTML = '';
+            try {
+                const qr = qrcode(0, 'M');
+                qr.addData(nama);
+                qr.make();
+                renderBox.innerHTML = qr.createSvgTag({cellSize: 5, margin: 2});
+            } catch(e) {
+                renderBox.innerText = nama;
+            }
+
+            document.getElementById('app-content').classList.add('no-print');
+            document.getElementById('id-card-cetak-area').classList.remove('hidden');
+            window.print();
+        }
+
+        function tutupCetakCard() {
+            document.getElementById('id-card-cetak-area').classList.add('hidden');
+            document.getElementById('app-content').classList.remove('no-print');
+            location.reload();
+        }
+
+        function renderAbsenSelect() {
+            const select = document.getElementById('absen-nama');
+            select.innerHTML = '<option value="">-- Pilih Karyawan --</option>';
+            karyawanList.forEach(k => {
+                select.innerHTML += `<option value="${k.nama}">${k.nama} (${k.divisi})</option>`;
+            });
+        }
+
+        function renderAbsen() {
+            const tbody = document.getElementById('tabel-absen-data');
+            tbody.innerHTML = '';
+            document.getElementById('count-absen').innerText = absenList.filter(a => !a.tanggal || a.tanggal === tanggalHariIni()).length;
+
+            absenList.forEach((item, index) => {
+                const isLate = item.statusAbsen === "Terlambat";
+                const badgeClass = isLate ? "bg-rose-50 text-rose-700 border border-rose-200" : "bg-emerald-50 text-emerald-700";
+                const iconText = isLate ? "⚠️ Terlambat" : "✔ Tepat Waktu";
+
+                tbody.innerHTML += `
+                    <tr class="border-b border-slate-100 hover:bg-slate-50">
+                        <td class="p-4 font-medium text-slate-900">${item.nama}</td>
+                        <td class="p-4 text-slate-600">${item.tanggal || '-'}<br>${item.waktu}</td>
+                        <td class="p-4"><span class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-semibold">${item.metode}</span><br><span class="text-[10px] text-slate-400">${item.latitude != null ? item.latitude.toFixed(5)+', '+item.longitude.toFixed(5) : 'GPS tidak tersedia'}</span></td>
+                        <td class="p-4 text-right"><span class="${badgeClass} px-3 py-1 rounded-full text-xs font-bold inline-block">${iconText}</span></td>
+                    </tr>
+                `;
+            });
+            localStorage.setItem('biztren_office_absen', JSON.stringify(absenList));
+        }
+
+        function renderRekapBulanan() {
+            const tbody = document.getElementById('tabel-rekap-bulanan');
+            tbody.innerHTML = '';
+
+            karyawanList.forEach(k => {
+                const bulanIni = tanggalHariIni().slice(0,7);
+                const absensiKaryawan = absenList.filter(a => a.nama === k.nama && (!a.tanggal || a.tanggal.slice(0,7) === bulanIni));
+                const totalHadir = absensiKaryawan.length;
+                const tepatWaktu = absensiKaryawan.filter(a => a.statusAbsen === "Tepat Waktu").length;
+                const terlambat = absensiKaryawan.filter(a => a.statusAbsen === "Terlambat").length;
+
+                tbody.innerHTML += `
+                    <tr class="border-b border-slate-100 hover:bg-slate-50">
+                        <td class="p-4 font-medium text-slate-900">${k.nama}</td>
+                        <td class="p-4 text-slate-600">${k.divisi}</td>
+                        <td class="p-4 text-center font-bold text-slate-700">${totalHadir} Hari</td>
+                        <td class="p-4 text-center font-bold text-emerald-600">${tepatWaktu} Kali</td>
+                        <td class="p-4 text-center font-bold text-rose-600">${terlambat} Kali</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderPayroll() {
+            const tbody = document.getElementById('tabel-payroll-data');
+            tbody.innerHTML = '';
+
+            payrollList.forEach((item, index) => {
+                const bruto = item.pokok + item.tunjangan;
+                const pajak = bruto * 0.05; 
+                const netto = bruto - pajak;
+
+                tbody.innerHTML += `
+                    <tr class="border-b border-slate-100 hover:bg-slate-50">
+                        <td class="p-4 font-medium text-slate-900">${item.nama}</td>
+                        <td class="p-4 text-slate-600">Rp ${item.pokok.toLocaleString('id-ID')}</td>
+                        <td class="p-4 text-slate-600">Rp ${item.tunjangan.toLocaleString('id-ID')}</td>
+                        <td class="p-4 text-rose-600 font-medium">Rp ${pajak.toLocaleString('id-ID')}</td>
+                        <td class="p-4 text-emerald-600 font-extrabold text-base">Rp ${netto.toLocaleString('id-ID')}</td>
+                        <td class="p-4 text-right space-x-2">
+                            <button onclick="cetakSlip('${item.nama}', ${item.pokok}, ${item.tunjangan}, ${pajak}, ${netto})" class="bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-semibold transition">🖨️ Cetak</button>
+                            <button onclick="hapusPayroll(${index})" class="text-rose-500 hover:text-rose-700 text-xs font-semibold">Hapus</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            localStorage.setItem('biztren_office_payroll', JSON.stringify(payrollList));
+        }
+
+        function renderAset() {
+            const tbody = document.getElementById('tabel-aset-data');
+            tbody.innerHTML = '';
+            document.getElementById('count-aset').innerText = asetList.length;
+
+            asetList.forEach((item, index) => {
+                tbody.innerHTML += `
+                    <tr class="border-b border-slate-100 hover:bg-slate-50">
+                        <td class="p-4 font-medium text-slate-900">${item.nama}</td>
+                        <td class="p-4 text-slate-600">${item.lokasi}</td>
+                        <td class="p-4"><span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-semibold">${item.kondisi}</span></td>
+                        <td class="p-4 text-right"><button onclick="hapusAset(${index})" class="text-rose-500 hover:text-rose-700 text-xs font-semibold">Hapus</button></td>
+                    </tr>
+                `;
+            });
+            localStorage.setItem('biztren_office_aset', JSON.stringify(asetList));
+        }
+
+        function cetakSlip(nama, pokok, tunjangan, pajak, netto) {
+            document.getElementById('print-nama').innerText = nama;
+            document.getElementById('print-pokok').innerText = 'Rp ' + pokok.toLocaleString('id-ID');
+            document.getElementById('print-tunjangan').innerText = 'Rp ' + tunjangan.toLocaleString('id-ID');
+            document.getElementById('print-pajak').innerText = 'Rp ' + pajak.toLocaleString('id-ID');
+            document.getElementById('print-netto').innerText = 'Rp ' + netto.toLocaleString('id-ID');
+
+            document.getElementById('app-content').classList.add('no-print');
+            document.getElementById('slip-cetak-area').classList.remove('hidden');
+            window.print();
+        }
+
+        function tutupCetak() {
+            document.getElementById('slip-cetak-area').classList.add('hidden');
+            document.getElementById('app-content').classList.remove('no-print');
+            location.reload();
+        }
+
+        document.getElementById('form-karyawan').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const nama = document.getElementById('nama-kry').value;
+            const divisi = document.getElementById('divisi-kry').value;
+            karyawanList.push({ nama, divisi, status: "Aktif" });
+            document.getElementById('nama-kry').value = '';
+            renderKaryawan();
+            renderCutiSelect(); renderFaceSelect();
+        });
+
+        document.getElementById('form-payroll').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const nama = document.getElementById('pay-nama').value;
+            const pokok = parseFloat(document.getElementById('pay-pokok').value) || 0;
+            const tunjangan = parseFloat(document.getElementById('pay-tunjangan').value) || 0;
+            payrollList.push({ nama, pokok, tunjangan });
+            document.getElementById('pay-nama').value = '';
+            document.getElementById('pay-pokok').value = '';
+            document.getElementById('pay-tunjangan').value = '';
+            renderPayroll();
+        });
+
+        document.getElementById('form-aset').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const nama = document.getElementById('nama-aset').value;
+            const lokasi = document.getElementById('lokasi-aset').value;
+            asetList.push({ nama, lokasi, kondisi: "Baik" });
+            document.getElementById('nama-aset').value = '';
+            document.getElementById('lokasi-aset').value = '';
+            renderAset();
+        });
+
+        document.getElementById('form-cuti').addEventListener('submit',function(e){
+            e.preventDefault();const mulai=document.getElementById('cuti-mulai').value,selesai=document.getElementById('cuti-selesai').value;
+            if(selesai<mulai){alert('Tanggal selesai tidak boleh sebelum tanggal mulai.');return;}
+            cutiList.unshift({nama:document.getElementById('cuti-nama').value,jenis:document.getElementById('cuti-jenis').value,mulai,selesai,alasan:document.getElementById('cuti-alasan').value,status:'Menunggu'});
+            this.reset();renderCuti();
+        });
+        document.getElementById('form-keuangan').addEventListener('submit',function(e){
+            e.preventDefault();keuanganList.unshift({jenis:document.getElementById('keu-jenis').value,tanggal:document.getElementById('keu-tanggal').value,kategori:document.getElementById('keu-kategori').value,nominal:Number(document.getElementById('keu-nominal').value),keterangan:document.getElementById('keu-keterangan').value});
+            this.reset();document.getElementById('keu-tanggal').value=tanggalHariIni();renderKeuangan();
+        });
+
+        function hapusKaryawan(i) { karyawanList.splice(i, 1); renderKaryawan(); renderCutiSelect(); renderFaceSelect(); }
+        function hapusPayroll(i) { payrollList.splice(i, 1); renderPayroll(); }
+        function hapusAset(i) { asetList.splice(i, 1); renderAset(); }
+    </script>
+</body>
+</html>
